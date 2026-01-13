@@ -9,9 +9,9 @@
 | 5   | [[Processes and signals]]           | C     |
 | 6   | [[Inter-process communication]]     | C     |
 | 7   | [[Threads]]                         | C     |
-| 8   | [[Assembler]]                       | -     |
-| 9   | [[Low level optimization]]          | -     |
-| 10  | [[Interrupts]]                      | -     |
+| 8   | [[Assembler]]                       | C     |
+| 9   | [[Low level optimization]]          | C     |
+| 10  | [[Interrupts]]                      | C     |
 
 # Additional
 
