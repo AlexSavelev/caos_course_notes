@@ -1,4 +1,4 @@
-# 1. Этапы компиляции
+# Этапы компиляции
 
 Стадии компиляции кода:
 1. Препроцессинг
@@ -20,12 +20,25 @@ int main() {
 }
 ```
 
-## 1.1 Препроцессинг
+## Препроцессинг
 - Этакая подготовка C++ кода к "настоящей" компиляции
 - cpp -> cpp
 
 **Препроцессором выполняются следующие действия:**
 - Замена соответствующих диграфов и триграфов на эквивалентные символы «`#`» и «`\`»
+	- **Диграфы** и **триграфы** — альтернативные представления определённых символов. Их цель — позволить писать код на машинах или с клавиатурами, где отсутствуют некоторые стандартные символы языка C++.
+	- Триграфы были полностью удалены из стандарта C++ начиная с C++17, диграфы поддерживаются до сих пор.
+```cpp
+// Программа, написанная с использованием диграфов
+%:include <iostream>
+
+int main() <%
+	int arr<:5:> = <%1, 2, 3, 4, 5%>;
+	std::cout << "Element: " << arr<:2:> << std::endl;
+	return 0;
+%>
+```
+
 - Удаление экранированных символов перевода строки
 - Замена строчных и блочных комментариев пустыми строками (с удалением окружающих пробелов и символов табуляции)
 - Вставка (включение) содержимого произвольного файла (`#include`)
@@ -97,7 +110,7 @@ readelf -S hello.o         # Секции ELF
 
 ## 1.4 Линковка
 - Необходима, даже если всего 1 cpp'шник.
-- Присоединяет к написанному коду стандарные сущности (`std::cin`, `std::cout`, `malloc`, `new`, ...)
+- Присоединяет к написанному коду стандартные сущности (`std::cin`, `std::cout`, `malloc`, `new`, ...)
 - Разрешает символы — ищет определения для объявлений
 
 **Механизм линковки:**
@@ -117,8 +130,6 @@ readelf -S hello.o         # Секции ELF
 `.o` файл — промежуточный объектный файл, содержащий машинный код из одного исходного файла.
 `.out` файл — финальный исполняемый файл, созданный линковщиком из одного или нескольких `.o` файлов.
 
-> A `.o` file is an intermediate object file, containing machine code from a single source file, while a `.out` file is the final executable file, produced by a linker that combines one or more `.o` files.
-
 # 2. ELF (Executable and Linkable Format)
 
 Рассматривая различные исполняемые или "полуисполняемые" файлы (например, `libstdc++.so` или `hello.o`), мы можем увидеть что их структура схожа — одного и того же формата.
@@ -129,19 +140,15 @@ readelf -S hello.o         # Секции ELF
 
 ELF — стандартный формат файлов для исполняемых файлов, объектного кода, разделяемых библиотек и core-дампов в Linux и других Unix-подобных ОС. Он предоставляет структуру для корректной интерпретации и выполнения машинного кода, поддерживая динамическую линковку и позиционно-независимый код. ELF-файл содержит заголовки, сегменты и секции, описывающие код и данные.
 
->ELF (Executable and Linkable Format) is the standard file format for executables, object code, shared libraries, and core dumps in Linux and other Unix-like operating systems. It provides the structure for the operating system to correctly interpret and execute machine code, supporting features like dynamic linking and position-independent code. An ELF file contains headers, segments, and sections that describe the code and data, allowing the system to load and execute the program.
-
 - Есть программа, которая рассказывает о ELF-файле
 ```bash
 readelf -a a.out
 ```
-- [[Programs#readelf]]
+- [[Common tools#readelf]]
 
 ## 2.1 Структура ELF
 
 Каждый ELF-файл имеет строгую структуру. ELF имеет одинаковый макет для всех архитектур, однако порядок байт (endianness) и размер слова могут различаться; типы релокации, типы символов могут иметь платформенно-специфичные значения, и, конечно, содержащийся код зависит от архитектуры.
-
->ELF has the same layout for all architectures, however endianness and word size can differ; relocation types, symbol types and the like may have platform-specific values, and of course the contained code is architecture specific.
 
 ![[elf_layout_2.png|500]]
 
@@ -152,13 +159,6 @@ ELF-файлы могут быть разделены на сегменты (seg
 - **Представление для загрузчика (сегментное):** Сегменты классифицируют различные регионы исполняемого файла или разделяемой библиотеки для целей загрузки в память для выполнения.
     - Не все секции должны быть загружены в память для выполнения (например, отладочная информация)
     - Сегмент содержит одну или более секций. На диаграмме выше показаны два загружаемых сегмента: один содержит данные только для чтения, другой — данные для чтения/записи.
-
-> ELF files can be broken down into segments and sections. Segments and sections may overlap (i.e., several sections may compose a single segment). This is because ELF offers two views of the executable files:
-> 
-> - Linker/Section view: As object files are linked together, the linker will have to merge multiple instances of a given section from different object files into one section in the executable.
-> - Loader/Segment view: Segments classify different regions of the executable or shared library for the purpose of loading into memory for execution.
->     - Not all sections are to be loaded into memory for execution (e.g, debugging information)
->     - A segment contains one more sections. The diagram above shows two loadable segments, one containing read-only data and one containing read/write data.
 
 **Более расширенное объяснение:**
 
@@ -180,22 +180,6 @@ ELF-файлы используются двумя инструментами: *
 
 **Важно:** Части ELF-файла, используемые линковщиком, называются "секциями", а части, используемые загрузчиком, называются "сегментами". Секции и сегменты перекрываются. Обычно несколько секций (как видит линковщик, например `.text`, `.init`) содержатся в одном исполняемом сегменте (что видит загрузчик).
 
-> ELF files are used by two tools: the **linker** and the **loader**. A linker combines multiple ELF files into an executable or a library and a loader loads the executable ELF file in the memory of the process. On real operating systems, loading may require relocation (e.g., if the file is dynamically linked it has to be linked again with all the shared libraries it depends on) - but it's really hard operation.
-> 
-> Linker and loader need two different views of the ELF file, i.e., **they access it differently**.
-> 
-> On the one hand, the linker needs to know where the DATA, TEXT, BSS, and other sections are to merge them with sections from other libraries. If relocation is required the linker needs to know where the symbol tables and relocation information is.
-> 
-> On the other hand, the loader does not need any of these details. It simply needs to know which parts of the ELF file are code (executable), which are data and read-only data, and where to put the BSS in the memory of a process.
-> 
-> Hence, the ELF file provides two separate views on the data inside the ELF file: **a linker view** with several details, and a **loader view**, a higher level view with less details.
-> 
-> To provide these views each ELF file contains two tables (or arrays):
-> - **Section Header Table** With pointers to **sections** to be used by the **linker**.
-> - **Program Header Table** With pointers to **segments** to be used by the **loader**.
-> 
-> Both tables are simply arrays of entries that contain information about each part of the ELF file (e.g., where the sections/segments used by the linker/loader are inside the ELF file).
-
 Here is a simple figure of a typical ELF file that starts with the ELF header. The header contains pointers to the locations of Section Header Table and Program Header Table within the ELF file. Then each tables have entries that point to the starting locations of individual sections and segments.
 
 ![[elf_layout_3_colored.jpg]]
@@ -206,31 +190,33 @@ Here is a simple figure of a typical ELF file that starts with the ELF header. T
 - Информация о системе, для которой предназначен ELF-бинар
 - Смещения в файле для таблицы заголовков программ (Phdr) и таблицы заголовков секций (Shdr). Первая перечисляет сегменты, вторая — секции в ELF-файле.
 
-> All ELF files begin with a header that contains metadata for the ELF file, including:
-> - Four “magic” bytes in the beginning of the file: `0x7f`, `'E'`, `'L'`, `'F'`
-> - Information about the system on which the ELF binary is meant to run
-> - Offsets into the file for the Program header (Phdr) table and the Section header (Shdr) table. The former lists the segments and the latter lists the sections in the ELF file.
-
 **Просмотр заголовка:**
 ```bash
 readelf -h a.out
 ```
 
-## 3.4 Types of ELF files
+## 2.4 Types of ELF files
 Executable and Linkable Format (ELF) определяет четыре основных типа файлов:
 
 - **Исполняемый файл (ET_EXEC):** Полная, готовая к запуску программа. Содержит всю необходимую информацию для загрузки в память и начала выполнения.
+```bash
+g++ -static main.cpp
+```
+
 - **Релоцируемый файл (ET_REL):** Также известен как объектный файл (например, `.o` файлы). Содержит код и данные, которые еще не были связаны в финальный исполняемый файл или разделяемый объект. Предназначен для объединения с другими релоцируемыми файлами и библиотеками линковщиком для формирования исполняемого файла или разделяемого объекта.
+```bash
+g++ -shared main.cpp -o lib.so
+```
+
 - **Разделяемый объектный файл (ET_DYN):** Динамически связываемые объектные файлы, обычно называемые разделяемыми библиотеками (например, `.so` файлы в Linux). Могут быть загружены и связаны с образом процесса программы во время выполнения, позволяя нескольким программам разделять один и тот же библиотечный код в памяти.
 - **Core-дамп файл (ET_CORE):** Генерируется ядром при падении программы (например, из-за segmentation fault). Core-дамп — это снимок памяти программы и состояния регистров на момент падения. Основное предназначение — отладка post-mortem и анализ для определения причины падения.
 
-> The Executable and Linkable Format (ELF) defines four primary types of files:
-> - **Executable File (ET_EXEC):** This is a complete, ready-to-run program. It contains all the necessary information for the operating system to load it into memory and begin execution.
-> - **Relocatable File (ET_REL) (Position Independent Code):** Also known as an object file (e.g., `.o` files), this type contains code and data that has not yet been linked into a final executable or shared object. It is designed to be combined with other relocatable files and libraries by a linker to form an executable or shared object.
-> - **Shared Object File (ET_DYN):** These are dynamically linkable object files, commonly referred to as shared libraries (e.g., `.so` files on Linux). They can be loaded and linked into a program's process image at runtime, allowing multiple programs to share the same library code in memory.
-> - **Core Dump File (ET_CORE):** Generated by the kernel when a program crashes (e.g., due to a segmentation fault), a core dump file is a snapshot of the program's memory and register state at the time of the crash. Its primary purpose is for post-mortem debugging and analysis to determine the cause of the crash.
-
 **Position-Independent Executable (PIE):** Исполняемые файлы, которые могут быть загружены по любому адресу в памяти (адреса функций кодируются относительными). Создаются с флагом `-pie`. Иначе `-no-pie` или `-fno-pie` создает `EXEC (Position-Dependent)`.
+```bash
+g++ -pie main.cpp
+```
+
+**Замечание**. PIE — это НЕ отдельный, пятый тип файла. Это особенность исполняемых файлов типа `ET_EXEC` или, чаще, `ET_DYN`. Файл, скомпилированный с `-pie`, технически является разделяемым объектом (ET_DYN), но с точкой входа, как у исполняемого файла. `readelf -h` для такого файла покажет `Type: DYN (Shared object file)`, но он будет исполняемым. Это сделано для безопасности (ASLR). Старые не-PIE исполняемые файлы имеют тип `ET_EXEC`.
 
 ## 2.5 Symbol table
 Таблица символов ELF (хранится в секции `.symtab`) — это список всех символов, на которые ссылается исполняемый файл, а именно функций и статических переменных. Также содержит символы, на которые есть ссылки в программе, но которые фактически не определены в ней, такие как функции стандартной библиотеки C (`printf()`).
@@ -259,17 +245,6 @@ typedef struct {
 readelf -s a.out
 nm a.out
 ```
-
-> The ELF symbol table (stored at the `.symtab` section) is a list of all symbols referred to by the executable, namely functions and static variables. It also contains symbols that are referred to in the program by not actually defined by it, such as C library functions like `printf()`.
-> 
-> The symbol table is an array of `Elf64_Sym` structs, defined as follows:
-> 
-> A few notes about some fields of interest:
-> 
-> - `st_name` is the index into the symbol table’s string table, stored in the `.strtab` section.
-> - `st_info` is a packed byte containing the symbol’s type and binding.
-> - `st_value` is the address of the symbol.
-> - `st_size` is the size of the symbol. For functions, `st_size` is the total byte size of all of the instructions in the function.
 
 ## 2.6 Динамическое связывание (Dynamic Linking)
 Динамические библиотеки (`*.so`) загружаются в память один раз и могут использоваться несколькими процессами.
@@ -338,9 +313,30 @@ readelf -d a.out      # динамическая секция
 
 Благодаря динамической линковке используется меньше ресурсов оперативной памяти.
 
-## 3.2 Разделяемые библиотеки (Shared Objects)
+## 3.2 Понятие "библиотека"
+**Библиотека** - уже скомпилированный ELF файл, в котором находятся символы с определениями. Общепринято называть либы начиная с lib.
+
+Библиотеки разделяют на два типа:
+- статические (расширение `.lib` или `.a`)
+- динамические (расширение `.so` или `.dll`)
+
+### 3.2.1. `ltrace` — отслеживание библиотечных вызовов
+Есть полезная тулза `ltrace`, которая регулирует все библиотечные вызовы
+- Пишет в `stderr`, что логично (вообще все логи выводятся в `stderr`, отдельно от основного вывода)
+
+- С флагом `-C` выведет неманглированные имена
+```bash
+ltrace -C ./a.out 2>2.txt  # неманглированные имена
+```
+- По факту, подменяет стандартный динамический линковщик на тот, что логирует дополнительно вызовы
+
+## 3.2 Динамически разделяемые объекты (Dynamic Shared Objects)
 - Динамическая библиотека (`.so`)
 	- В Windows - DLL (Dynamic Link Library)
+
+**DSO** — это Dynamic Shared Object (Динамически разделяемый объект). Это общий термин для любого файла, который может быть загружен динамически во время выполнения программы. К DSO относятся:
+1. Разделяемые библиотеки (shared libraries): Файлы с расширением `.so` (например, `libc.so.6`, `libstdc++.so.6`).
+2. Исполняемые файлы, скомпилированные как PIE (Position-Independent Executable): Хотя они исполняемые, технически они тоже являются DSO (тип `ET_DYN`), что позволяет ядру загружать их по случайному адресу (ASLR).
 
 **Просмотр зависимостей разделяемых библиотек:**
 - Print shared object dependencies
@@ -357,21 +353,22 @@ ldd a.out
 g++ -static hello.cpp
 ```
 
-Теперь программа не зависит от внешних библиотек (чек через `ldd a.out`), но размер значительно увеличивается (около 16Кб). Динамический линковщик не требуется, так как весь код включен в исполняемый файл. ==TODO== правда ли не требуется динамический линковщик?
+Теперь программа не зависит от внешних библиотек (чек через `ldd a.out`), но размер значительно увеличивается (около 16Кб). Динамический линковщик не требуется, так как весь код включен в исполняемый файл.
+- Статически слинкованный исполняемый файл (скомпилированный с `-static`) не содержит секции `.interp` (интерпретатор), которую `readelf -l` показывает как `[Requesting program interpreter: /lib64/ld-linux-x86-64.so.2]`. Такой файл загружается в память и запускается ядром напрямую, без участия динамического линковщика (`ld.so`). Проверить можно командой `readelf -l a.out | grep interpreter` — у статического бинарника этой строки не будет.
 
 **Проблема:** при запуске скомпилированного на одной системе статического бинарника на другой системе могут возникнуть проблемы из-за различий в версиях библиотек, интерфейсах системных вызовов и т.д. Статический бинарник будет работать только там, где совпадают архитектура и интерфейс системных вызовов.
 
 ## 3.4 Создаем библиотеку
 Рассмотрим код
 
-**mylib.cpp:**
+**`mylib.cpp`:**
 ```cpp
 int multiply(int a, int b) {
     return a * b;
 }
 ```
 
-**hello.cpp:**
+**`hello.cpp`:**
 ```cpp
 // `multiply` как бы есть, но он не зарезолвен
 int multiply(int a, int b);
@@ -391,8 +388,14 @@ collect2: error: ld returned 1 exit status
 ```bash
 g++ -shared -fPIC mylib.cpp -o mylib.so
 ```
-- Это либа, по `ldd` видно, что там есть раздел `.dynsym`, где перечислены функции, которые публично видны (но из индексируемого там только `multiply`)
-- ==TODO== обязательно ли -fPIC?
+- Это либа, по `objdump` (`readelf`) видно, что там есть раздел `.dynsym`, где перечислены функции, которые публично видны (но из индексируемого там только `multiply`)
+
+```bash
+objdump -T mylib.so
+readelf --dyn-syms mylib.so
+```
+
+- Для создания разделяемых библиотек (.so) использование `-fPIC` (Position Independent Code) обязательно на большинстве современных архитектур. Это позволяет загружать библиотеку по любому адресу в памяти, что необходимо для работы нескольких процессов с одной библиотекой и для ASLR. Без `-fPIC` линковка может пройти, но при загрузке библиотеки в рантайме будут ошибки.
 
 **Компиляция с библиотекой:**
 - Теперь скомпилируем с библиотекой
@@ -462,7 +465,7 @@ ld hello.o /lib/x86_64-linux-gnu/libstdc++.so.6 /lib/x86_64-linux-gnu/libc.so.6
 ## 3.6 Динамический линковщик (`ld.so`) vs статический (`ld`)
 - **`ld`** — статический линковщик, вызывается на этапе сборки.
 - **`ld.so`** — динамический линковщик (интерпретатор), загружается при запуске программы. Он создает нам окружение: все библиотеки, стек и т.п.
-	- Когда мы запускаем `./a.out`, сначала запускается динамический линкировщик, который затем отдает управление `a.out`
+	- Когда мы запускаем `./a.out`, сначала запускается динамический линковщик, который затем отдает управление `a.out`
 
 **Процесс запуска программы:**
 1. Ядро загружает программу и интерпретатор (из `PT_INTERP`)
@@ -478,7 +481,12 @@ ld hello.o /lib/x86_64-linux-gnu/libstdc++.so.6 /lib/x86_64-linux-gnu/libc.so.6
 
 ## 3.8 Проблема с `_start` и `main`
 
-Теперь слинкуем программу еще и с `-I /lib64/ld-linux-x86_64.so`. Будет также жаловаться на `_start`, зато программа заработает: но в самом конце будет Segmentation Fault.
+Теперь слинкуем программу еще и с `-I /lib64/ld-linux-x86_64.so`.
+```bash
+ld hello.o /lib/x86_64-linux-gnu/libstdc++.so.6 /lib/x86_64-linux-gnu/libc.so.6 /lib/gcc/x86_64-linux-gnu/11/crtendS.o /lib/gcc/x86_64-linux-gnu/11/crtbeginS.o -I /lib64/ld-linux-x86-64.so.2
+```
+
+Будет также жаловаться на `_start`, зато программа заработает: но в самом конце будет Segmentation Fault.
 - Здесь будет вызываться не `_start`, а сразу `main()`
 - `return 0;` не знает, куда идти: в стеке адрес возврата отсутствует
 - Хотя может это потому, что `std::cin` - глобальная переменная, которую надо сынициализировать до `main`'а
@@ -534,6 +542,12 @@ int a = 4;
 - **HIDDEN** — виден только внутри DSO
 - **PROTECTED** — виден везде, но переопределяем только внутри DSO
 
+**Более расширенное объяснение:**
+Когда вы компилируете библиотеку (`*.so`), вы можете контролировать, какие символы (функции, глобальные переменные) будут "видны" снаружи — то есть доступны для использования другими DSO (главной программе или другим библиотекам).
+- **DEFAULT**: Символ экспортирован и виден всем DSO, которые используют эту библиотеку.
+- **HIDDEN**: Символ **не** экспортирован. Он может быть использован только внутри **того самого DSO, где он определён**. Это помогает скрыть внутренние вспомогательные функции и уменьшить вероятность конфликтов имён.
+- **PROTECTED**: Символ экспортирован (виден другим DSO), но если какая-то другая библиотека попытается его переопределить, то внутри оригинального DSO будет использоваться своя, оригинальная версия. Это более редкий случай.
+
 **Примеры:**
 ```cpp
 // Примеры visibility:
@@ -559,8 +573,6 @@ void internal() {}        // скрыт (с -fvisibility=hidden)
 g++ -fPIC -shared -fvisibility=hidden lib.cpp -o libfoo.so
 ```
 
-==TODO== more info
-
 ## 4.3 Манглирование имен (Name Mangling)
 C++ кодирует имена функций с учетом типов параметров, области видимости и т.д.
 
@@ -574,6 +586,8 @@ nm -C a.out       # деманглированные имена
 ```bash
 strip a.out  # удаляет символы и отладочную информацию
 ```
+Обрезать ненужные куски ELF-файла, которые не сильно нужны (например, `.syntab` - он при исполнении не нужен - нужен только `.dynsym`)
+- Бывает полезно, чтобы защитить программу от Reverse Engineering'а
 
 # 5. Отладка и Core Dump
 - Четверный вид ELF-файла
@@ -666,13 +680,3 @@ g++ -fPIC -shared lib.cpp -o lib.so
 # PIE (Position Independent Executable) — для ASLR
 g++ -pie -fPIE main.cpp -o main_pie
 ```
-
-### 6.5 ltrace — отслеживание библиотечных вызовов
-Есть полезная тулза `ltace`, которая регулирует все библиотечные вызовы
-- Пишет в `stderr`, что логично (вообще все логи выводятся в `stderr`, отдельно от основного вывода)
-
-- С флагом `-C` выведет неманглированные имена
-```bash
-ltrace -C ./a.out 2>2.txt  # неманглированные имена
-```
-- По факту, подменяет стандартный динамический линковщик на тот, что логирует дополнительно вызовы
