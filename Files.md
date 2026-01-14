@@ -1,5 +1,5 @@
 - Работа с файлами
-- **Файловая система** — структура для хранения файлов (ext4, btrfs, XFS)
+- **Файловая система** — способ организации и хранения файлов (ext4, btrfs, XFS)
 
 # 1. Типы файлов в Linux
 
@@ -68,6 +68,7 @@ ls -l
 **Типы устройств:**
 - `c` (символьные): `/dev/tty`, `/dev/random`, `/dev/null`
  - `b` (блочные): `/dev/sda`, `/dev/nvme0n1`
+
 **Виртуальные устройства:**
 - `/dev/null` — игнорирует запись, возвращает EOF при чтении
 	- Абстракция уровня ОС
@@ -153,17 +154,17 @@ int mkfifo(const char *pathname, mode_t mode);
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include <fcntl.h>      // open() и констант O_*
-#include <unistd.h>     // write(), close()
-#include <string.h>     // strlen()
-#include <stdio.h>      // printf()
+#include <fcntl.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdio.h>
 
 int main() {
 	mkfifo("./test_fifo", 0666);
 	int fd = open("./test_fifo", O_WRONLY);
 	
 	char* str = "Hello!";
-	write(fd, str, strlen(str) + 1);
+	write(fd, str, strlen(str));
 	
 	close(fd);
 	return 0;
@@ -176,9 +177,9 @@ int main() {
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include <fcntl.h>      // open()
-#include <unistd.h>     // read(), close()
-#include <stdio.h>      // printf()
+#include <fcntl.h>
+#include <unistd.h>
+#include <stdio.h>
 
 int main() {
 	int fd = open("./test_fifo", O_RDONLY);
@@ -193,7 +194,7 @@ int main() {
 }
 ```
 
-- Запускаем первую программу (`./write_to_fifo`) - она зависает: ждет, пока кто-то начнет читать
+- Запускаем первую программу (`./write_to_fifo`) - она зависает на моменте открытия (`open`): ждет появления читателя (этакое рандеву)
 - Запускаем вторую (`./read_from_fifo`) - выводит `Hello`, а первая программа заканчивает выполнение
 
 **Забудем про первую программу и сделаем через `echo`:**
@@ -207,7 +208,8 @@ echo "Hello" > test_fifo
 - `echo` завершилась.
 
 
-- **Неблокирующий режим:** `open("myfifo", O_RDONLY | O_NONBLOCK)` — возвращает управление сразу
+- **Неблокирующий режим:** `open("myfifo", O_RDONLY | O_NONBLOCK)` — возвращает управление сразу.
+	- `read` и `write` тоже не задерживают работу.
 ```cpp
 int fd = open("myfifo", O_RDONLY | O_NONBLOCK);
 if (fd == -1) {
@@ -280,7 +282,9 @@ int main() {
 cd /proc/
 ```
 
-Это псевдофайловая система (pseudo-filesystem) (то есть не хранится фактически на диске). **Мануал к ней:**
+Это псевдофайловая система (pseudo-filesystem) (то есть не хранится фактически на диске, но предоставляет интерфейс в виде файлов и каталогов к данным о состоянии ядра, процессах, устройствах и других системных ресурсах).
+
+**Мануал к ней:**
 ```bash
 man proc
 ```
@@ -301,6 +305,7 @@ ls -l
 - `cd fd` — симлинки на открытые файлы процесса
 
 Как оказывается, программа top просто читает `/proc/{PIDs}/statm` (или `stat`):
+- См. `man proc_pid_stat`
 ```bash
 strace top
 ```
@@ -312,8 +317,9 @@ lsof -p {PID}
 
 **Упрощенная реализация `lsof`:**
 ```cpp
-#include <stdio.h>
 #include <dirent.h>
+#include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 
 int main() {
