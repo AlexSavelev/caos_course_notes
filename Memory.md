@@ -321,6 +321,10 @@ int main(int argc, char *argv[]) {
 }
 ```
 
+```bash
+./a.out func.o 54  # func(54.000000) = 2916.000000
+```
+
 **Загрузка кода из библиотеки:**
 1. `mmap` с `PROT_READ|PROT_EXEC`
 2. Копирование кода
