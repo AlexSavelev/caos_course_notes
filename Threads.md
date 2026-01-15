@@ -53,8 +53,10 @@ int main() {
 
 	for (int i = 0; i < 1'000'000; ++i) {
 		v.push_back(i);
-	}
-
+	}  
+	
+	t.join();
+	
 	return 0;
 }
 ```
@@ -88,6 +90,7 @@ int main() {
 	
 	for (int i = 0; i < 8; ++i) {
 		vt.emplace_back(sum, i, i * 100'000, (i + 1) * 100'000);
+		// тут поток vt[i] начал выполнение
 	}
 	
 	for (auto& t : vt) {
@@ -114,7 +117,7 @@ t.detach();
 ```
 
 # 2. На уровне Linux
-На Linux конпепция потоков существуют. Конечно, в далеком прошлом поток был равен процессу. Сейчас это немного другая концепция.
+Конечно, в далеком прошлом поток был равен процессу. Сейчас это немного другая концепция.
 Но что осталось самым важным — потоки разделяют одно и то же адресное пространство (maps один и тот же), также у них одинаковые Signal Handler'ы.
 
 В Linux потоки реализованы как легковесные процессы (Lightweight Processes, LWP), которые используют `clone()` с флагами, указывающими на общие ресурсы.
@@ -169,44 +172,74 @@ syscall(SYS_tgkill, tgid, tid, sig);
 # 3. Реализация `std::thread`
 
 ```cpp
+#include <functional>
+#include <iostream>
 #include <pthread.h>
-#include <memory>
-#include <stdexcept>
 
 class Thread {
-    pthread_t thread;
-    bool joined;
-    
-    static void* starter(void* arg) {
-        auto func = static_cast<std::function<void()>*>(arg);
-        (*func)();
-        delete func;
-        return nullptr;
-    }
-    
+  pthread_t thread;
+  bool joined;
+
+  static void *starter(void *arg) {
+    auto func = static_cast<std::function<void()> *>(arg);
+    (*func)();
+    delete func;
+    return nullptr;
+  }
+
 public:
-    template<typename Callable>
-    Thread(Callable func) : joined(false) {
-        auto func_ptr = new std::function<void()>(func);
-        if (pthread_create(&thread, nullptr, starter, func_ptr) != 0) {
-            delete func_ptr;
-            throw std::runtime_error("pthread_create failed");
-        }
+  template <typename Callable> Thread(Callable func) : joined(false) {
+    auto func_ptr = new std::function<void()>(func);
+    if (pthread_create(&thread, nullptr, starter, func_ptr) != 0) {
+      delete func_ptr;
+      throw std::runtime_error("pthread_create failed");
     }
-    
-    void join() {
-        if (!joined) {
-            pthread_join(thread, nullptr);
-            joined = true;
-        }
+  }
+
+  void join() {
+    if (!joined) {
+      pthread_join(thread, nullptr);
+      joined = true;
     }
-    
-    ~Thread() {
-        if (!joined) {
-            pthread_detach(thread);
-        }
+  }
+
+  ~Thread() {
+    if (!joined) {
+      pthread_detach(thread);
     }
+  }
 };
+
+int main() {
+  const long long N = 100000000; // 100 миллионов чисел
+
+  std::cout << "\nПараллельное сложение (2 потока)..." << std::endl;
+
+  long long sum1 = 0, sum2 = 0;
+
+  // Первый поток суммирует первую половину
+  Thread t1([&sum1, N]() {
+    for (long long i = 1; i <= N / 2; i++) {
+      sum1 += i;
+    }
+  });
+
+  // Второй поток суммирует вторую половину
+  Thread t2([&sum2, N]() {
+    for (long long i = N / 2 + 1; i <= N; i++) {
+      sum2 += i;
+    }
+  });
+
+  t1.join();
+  t2.join();
+
+  long long sum_par = sum1 + sum2;
+
+  std::cout << "Результат: " << sum_par << std::endl;
+
+  return 0;
+}
 ```
 
 # 4. POSIX Thread'ы
@@ -301,7 +334,9 @@ int main() {
 	for (int i = 0; i < 1'000'000; ++i) {
 		v.push_back(i);
 	}
-
+	
+	t.join();
+	
 	return 0;
 }
 ```
@@ -352,7 +387,7 @@ int main() {
 - Требует у типа `lock` и `unlock`, у самого есть только конструктор и деструктор
 Есть также `std::unique_lock` и `std::shared_lock` - там уже есть `unlock`.
 
-**Решение проблемы:**
+**Решение проблемы. Теперь есть exception safety:**
 ```cpp
 #include <iostream>
 #include <vector>
@@ -373,19 +408,22 @@ void f() {
 
 int main() {
 	std::thread t(f);
-
-	m.lock();
-	for (int i = 0; i < 1'000'000; ++i) {
-		v.push_back(i);
-	}
-	m.unlock();
-
+	
+	{
+		std::lock_guard<std::mutex> lg2(m);
+		for (int i = 0; i < 1'000'000; ++i) {
+			v.push_back(i);
+		}
+	}  // Мьютекс автоматически освобождается здесь
+	
 	t.join();
 	std::cout << v.size();   // 2'000'000
 	
 	return 0;
 }
 ```
+
+Есть еще `unique_lock`. `lock_guard` и `unique_lock` - почти то же самое. Разница в том, что вы можете заблокировать и разблокировать `std::unique_lock`. `std::lock_guard` будет заблокирован только один раз при построении и разблокирован при уничтожении.
 
 ## 5.1. Dead lock
 Это ситуация в, когда два или более процесса/потока бесконечно ждут друг друга, так как каждый захватил ресурс, необходимый другому, и ни один не может завершить свою работу.
@@ -406,8 +444,8 @@ std::mutex m1;
 std::mutex m2;
 
 void f() {
-	std::unique_guard<std::mutex> lg(m2);
-	std::unique_guard<std::mutex> lg2(m1);
+	std::unique_lock<std::mutex> lg(m2);
+	std::unique_lock<std::mutex> lg2(m1);
 	for (int i = 1'000'000; i < 2'000'000; ++i) {
 		v.push_back(i);
 	}
@@ -416,14 +454,14 @@ void f() {
 int main() {
 	std::thread t(f);
 
-	m1.lock();
-	m2.lock();
+	std::unique_lock<std::mutex> lg(m1);
+	std::unique_lock<std::mutex> lg2(m2);
 	for (int i = 0; i < 1'000'000; ++i) {
 		v.push_back(i);
 	}
-	m1.unlock();
-	m2.unlock();
-
+	lg.unlock();
+	lg2.unlock();
+	
 	t.join();
 	std::cout << v.size();   // 2'000'000
 	
