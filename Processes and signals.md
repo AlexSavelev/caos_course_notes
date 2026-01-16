@@ -482,7 +482,6 @@ void handler(int num) {
 int* p = nullptr;
 
 int main() {
-	// SIGINT = 2, но можно макросом
 	signal(SIGSEGV, &handler);
 
 	*p = 1;
